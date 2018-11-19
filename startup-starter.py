@@ -35,7 +35,7 @@ class webServerHandler(BaseHTTPRequestHandler):
                 output +="<br>"
                 for startup in startups:
                     output +="<br>"
-                    output += startup.name
+                    output +="<a href='/startups/%s/detail'>%s</a> " %(startup.id,startup.name)
                     output +="<br>"
                     output += "<a href='/startups/%s/edit'> edit</a> "%startup.id
                     output += "<a href='/startups/%s/delete' > delete </a>"%startup.id
@@ -78,6 +78,37 @@ class webServerHandler(BaseHTTPRequestHandler):
 
                     return
 
+            if self.path.endswith("/detail"):
+                startup_id = self.path.split("/")[2]
+                startup = session.query(Startup).filter_by(id=startup_id).one()
+                founders = session.query(Founder).filter_by(startup_id=startup_id).all()
+
+                if startup:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    output = ""
+                    name=""
+                    output += "<html><body>"
+                    output +="<br>"
+                    output +="<p> Startup : %s </p>" %startup.name
+                    for founder in founders:
+                        output += "</br>"
+                        output += "</br>"
+                        output += founder.name
+                        output += "</br>"
+                        output += founder.bio
+                    output +="<p> Add founder : </p>"
+                    output += "<form method ='POST' enctype='multipart/form-data' action ='/startups/%s/detail'>"%startup.id
+                    output += "<input type='text' name='name' placeholder='name'/>"
+                    output += "<input type='text' name='bio' placeholder='bio'/>"
+                    output += "<button type='submit'> create founder! </button>"
+                    output += "</form></body></html>"
+
+                    self.wfile.write(output)
+
+                    return
+
             if self.path.endswith("/delete"):
                 startup_id = self.path.split("/")[2]
                 startup = session.query(Startup).filter_by(id=startup_id).one()
@@ -110,6 +141,23 @@ class webServerHandler(BaseHTTPRequestHandler):
                     startup = session.query(Startup).filter_by(id=startup_id ).one()
                     startup.name = startup_name[0]
                     session.add(startup)
+                    session.commit()
+                    self.send_response(301)
+                    self.send_header('content-type', "text/html")
+                    self.send_header('Location', "/startups")
+                    self.end_headers()
+
+            if self.path.endswith('/detail'):
+                ctype, pdict = cgi.parse_header(
+                    self.headers.getheader('content-type'))
+                if ctype == 'multipart/form-data':
+                    fields = cgi.parse_multipart(self.rfile, pdict)
+                    founder_name = fields.get('name')
+                    founder_bio = fields.get('bio')
+                    startup_id = self.path.split("/")[2]
+                    startup = session.query(Startup).filter_by(id=startup_id).one()
+                    founder = Founder(name=founder_name[0],bio=founder_bio[0],startup_id = startup_id )
+                    session.add(founder)
                     session.commit()
                     self.send_response(301)
                     self.send_header('content-type', "text/html")
